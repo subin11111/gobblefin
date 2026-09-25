@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#061c2a" />
+    <meta
+      name="description"
+      content="작은 물고기를 먹고 몸집을 키워 바다의 최강자가 되는 경쟁형 웹 아케이드 게임"
+    />
+    <title>GOBBLEFIN — 바다의 최강자가 되어라</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2307d6c7'/%3E%3Cpath d='M12 34c10-14 26-17 37-6l9-7-2 13 2 13-9-7c-11 11-27 8-37-6Z' fill='%23051c2a'/%3E%3Ccircle cx='41' cy='29' r='3' fill='%23f4ff8c'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Nunito:wght@600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <canvas id="game" aria-label="물고기를 움직여 작은 물고기를 먹고 성장하는 게임 화면"></canvas>
+
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="고블핀 처음 화면">
+          <span class="brand-mark" aria-hidden="true">◖</span>
+          <span>GOBBLE<span>FIN</span></span>
+        </a>
+        <div class="stat-strip" aria-live="polite">
+          <div><span>점수</span><strong id="score">0</strong></div>
+          <i></i>
+          <div><span>크기</span><strong id="size">20</strong></div>
+          <i></i>
+          <div><span>순위</span><strong id="rank">-</strong></div>
+        </div>
+        <button class="icon-button" id="soundButton" type="button" aria-label="소리 켜기" aria-pressed="false">
+          <span aria-hidden="true">♪</span>
+        </button>
+      </header>
+
+      <aside class="leaderboard panel" aria-label="실시간 순위">
+        <div class="panel-title"><span>TOP FISH</span><em>LIVE</em></div>
+        <ol id="leaderboardList"></ol>
+      </aside>
+
+      <section class="mission panel" aria-label="현재 목표">
+        <span class="eyebrow">현재 목표</span>
+        <strong id="missionText">노란 치어 5마리 먹기</strong>
+        <div class="progress"><span id="missionProgress"></span></div>
+        <small id="missionCount">0 / 5</small>
+      </section>
+
+      <div class="danger-callout" id="dangerCallout" role="status">
+        <span aria-hidden="true">!</span> 큰 물고기를 피해!
+      </div>
+
+      <div class="controls-hint" id="controlsHint">
+        <span class="mouse-icon" aria-hidden="true"></span>
+        <span><strong>마우스 / 터치</strong> 방향 조종</span>
+        <i></i>
+        <span><kbd>SPACE</kbd> 대시</span>
+      </div>
+
+      <button class="pause-button" id="pauseButton" type="button" aria-label="게임 일시정지">
+        <span aria-hidden="true">Ⅱ</span>
+      </button>
+
+      <section class="modal-wrap is-visible" id="startModal" aria-labelledby="startTitle">
+        <div class="modal-card start-card">
+          <div class="water-orbit" aria-hidden="true">
+            <span class="orbit-fish fish-one">◀</span>
+            <span class="orbit-fish fish-two">◀</span>
+            <span class="orbit-fish fish-three">◀</span>
+            <div class="hero-fish">◖<i></i></div>
+          </div>
+          <p class="kicker">EAT · GROW · RULE THE REEF</p>
+          <h1 id="startTitle">작은 놈을 먹고<br /><span>바다를 지배해</span></h1>
+          <p class="intro">나보다 작은 물고기만 먹을 수 있어요.<br />몸집을 키워 최후의 포식자가 되세요.</p>
+          <button class="primary-button" id="startButton" type="button">
+            <span>헤엄치기</span><b aria-hidden="true">→</b>
+          </button>
+          <p class="best-score">내 최고 기록 <strong id="bestScore">0</strong></p>
+        </div>
+      </section>
+
+      <section class="modal-wrap" id="gameOverModal" aria-labelledby="gameOverTitle">
+        <div class="modal-card result-card">
+          <p class="kicker">THE REEF GOT YOU</p>
+          <h2 id="gameOverTitle">냠! 잡아먹혔어요</h2>
+          <div class="result-score"><span>이번 점수</span><strong id="finalScore">0</strong></div>
+          <p id="newBest" class="new-best">새로운 최고 기록!</p>
+          <button class="primary-button" id="restartButton" type="button">
+            <span>다시 헤엄치기</span><b aria-hidden="true">↻</b>
+          </button>
+        </div>
+      </section>
+
+      <section class="modal-wrap" id="pauseModal" aria-labelledby="pauseTitle">
+        <div class="modal-card pause-card">
+          <p class="kicker">DEEP BREATH</p>
+          <h2 id="pauseTitle">잠깐 쉬어갈까요?</h2>
+          <button class="primary-button" id="resumeButton" type="button">
+            <span>계속 헤엄치기</span><b aria-hidden="true">→</b>
+          </button>
+        </div>
+      </section>
+    </main>
+    <script src="./game.js"></script>
+  </body>
+</html>
