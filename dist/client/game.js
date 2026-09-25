@@ -39,7 +39,6 @@
     { id: "koi", name: "달빛 비단잉어", species: "비단잉어", price: 220, base: "#f4f5e9", accent: "#ff554f", note: "달빛 흰 몸 위의 붉은 반점" }
   ];
   const MISSION_GOALS = [5, 12, 22, 36];
-  const EAT_RATIO = 1.08;
   let dpr = 1, width = 0, height = 0, last = performance.now();
   let running = false, paused = false, soundOn = false, frame = 0, camera = { x: WORLD.w / 2, y: WORLD.h / 2, zoom: 1 };
   let player, prey = [], rivals = [], remotePlayers = [], treasures = [], particles = [], bubbles = [], ripples = [];
@@ -61,6 +60,8 @@
   function rand(min, max) { return Math.random() * (max - min) + min; }
   function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
   function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function canEat(hunter, target) { return hunter.r > target.r; }
+  function isTouching(a, b, reach = 1) { return distance(a, b) < (a.r + b.r) * reach; }
   function angleLerp(a, b, t) {
     let d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     return a + d * t;
@@ -430,8 +431,8 @@
           if (d < nearest && d < 260000) { nearest = d; target = f; }
         }
         const pd = distance(rival, player);
-        if (player.alive && rival.r > player.r * EAT_RATIO && pd < 520) target = player;
-        if (player.alive && player.r > rival.r * EAT_RATIO && pd < 340) {
+        if (player.alive && canEat(rival, player) && pd < 520) target = player;
+        if (player.alive && canEat(player, rival) && pd < 340) {
           rival.targetAngle = Math.atan2(rival.y - player.y, rival.x - player.x);
         } else if (target) {
           rival.targetAngle = Math.atan2(target.y - rival.y, target.x - rival.x);
@@ -446,11 +447,10 @@
       rival.y = clamp(rival.y + Math.sin(rival.angle) * speed * dt, rival.r, WORLD.h - rival.r);
       rival.wobble += dt * 6; recordTrail(rival);
 
-      for (const f of prey) if (f.alive && f.dropDelay <= 0 && rival.r > f.r * 1.4 && distance(rival, f) < rival.r * .72 + f.r) eatPrey(rival, f);
-      const pd = distance(rival, player);
-      if (player.alive && pd < (rival.r + player.r) * .8) {
-        if (rival.r > player.r * EAT_RATIO) defeat(`${rival.name} (AI)`);
-        else if (player.r > rival.r * EAT_RATIO) eatRival(rival);
+      for (const f of prey) if (f.alive && f.dropDelay <= 0 && canEat(rival, f) && isTouching(rival, f, 1.02)) eatPrey(rival, f);
+      if (player.alive && isTouching(rival, player, .92)) {
+        if (canEat(rival, player)) defeat(`${rival.name} (AI)`);
+        else if (canEat(player, rival)) eatRival(rival);
       }
     }
     rivals = rivals.filter(r => r.alive);
@@ -477,7 +477,7 @@
       fish.x = clamp(fish.x + (Math.cos(fish.angle) * fish.speed + fish.burstVx) * dt, 20, WORLD.w - 20);
       fish.y = clamp(fish.y + (Math.sin(fish.angle) * fish.speed + fish.burstVy) * dt, 20, WORLD.h - 20);
       fish.burstVx *= Math.max(0, 1 - dt * 4.5); fish.burstVy *= Math.max(0, 1 - dt * 4.5);
-      if (fish.dropDelay <= 0 && player.alive && player.r > fish.r * 1.35 && distance(player, fish) < player.r * .82 + fish.r) eatPrey(player, fish);
+      if (fish.dropDelay <= 0 && player.alive && canEat(player, fish) && isTouching(player, fish, 1.08)) eatPrey(player, fish);
     }
     const deadNatural = prey.reduce((n, f) => n + (!f.alive && !f.dropped ? 1 : 0), 0);
     prey = prey.filter(f => f.alive);
@@ -549,7 +549,7 @@
     ui.missionText.textContent = idx === MISSION_GOALS.length - 1 && player.eaten >= goal ? "리프의 최강자 유지하기" : `물고기 ${goal}마리 먹기`;
     ui.missionProgress.style.width = `${clamp((current - previous) / (goal - previous) * 100, 0, 100)}%`;
     ui.missionCount.textContent = `${current} / ${goal}`;
-    const danger = rivals.concat(remotePlayers).some(r => r.alive && r.r > player.r * EAT_RATIO && distance(r, player) < 320);
+    const danger = rivals.concat(remotePlayers).some(r => r.alive && canEat(r, player) && distance(r, player) < 320);
     ui.danger.classList.toggle("is-visible", danger);
   }
 
@@ -671,8 +671,8 @@
 
     if (!isPlayer) {
       ctx.save(); ctx.textAlign = "center"; ctx.font = `800 ${clamp(11 * camera.zoom, 10, 14)}px Nunito, sans-serif`;
-      const edible = player.r > fish.r * EAT_RATIO;
-      ctx.fillStyle = fish.r > player.r * EAT_RATIO ? "#ff8990" : (edible ? "#d9ff67" : "#b7d9d7");
+      const edible = canEat(player, fish);
+      ctx.fillStyle = canEat(fish, player) ? "#ff8990" : (edible ? "#d9ff67" : "#b7d9d7");
       ctx.fillText(`${edible && !fish.live ? "냠! 맛있는 AI · " : ""}${fish.name}${fish.live ? "  ● LIVE" : ""}`, p.x, p.y - r - 12); ctx.restore();
     } else {
       ctx.save(); ctx.textAlign = "center"; ctx.font = `900 ${clamp(12 * camera.zoom, 11, 15)}px Nunito, sans-serif`; ctx.fillStyle = "#eafff8"; ctx.fillText(`${fish.name} (나)`, p.x, p.y - r - 14); ctx.restore();

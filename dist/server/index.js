@@ -106,15 +106,15 @@ async function updateState(request, env) {
   let alive = true, eatenBy = null, bonus = 0;
   for (const other of nearby.results || []) {
     const d = Math.hypot(x - other.x, y - other.y);
-    if (d >= (radius + other.r) * .62) continue;
-    if (other.r > radius * 1.12) {
+    if (d >= (radius + other.r) * .9) continue;
+    if (other.r > radius) {
       const result = await env.DB.prepare(
         "UPDATE players SET alive=0, eaten_by=?, last_seen=? WHERE id=? AND alive=1"
       ).bind(other.id, now, id).run();
       if ((result.meta?.changes || 0) > 0) { alive = false; eatenBy = other.name; }
       break;
     }
-    if (radius > other.r * 1.14) {
+    if (radius > other.r) {
       const result = await env.DB.prepare(
         "UPDATE players SET alive=0, eaten_by=?, last_seen=? WHERE id=? AND alive=1"
       ).bind(id, now, other.id).run();
