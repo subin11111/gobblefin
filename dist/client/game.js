@@ -39,6 +39,7 @@
     { id: "koi", name: "달빛 비단잉어", species: "비단잉어", price: 220, base: "#f4f5e9", accent: "#ff554f", note: "달빛 흰 몸 위의 붉은 반점" }
   ];
   const MISSION_GOALS = [5, 12, 22, 36];
+  const EAT_RATIO = 1.08;
   let dpr = 1, width = 0, height = 0, last = performance.now();
   let running = false, paused = false, soundOn = false, frame = 0, camera = { x: WORLD.w / 2, y: WORLD.h / 2, zoom: 1 };
   let player, prey = [], rivals = [], remotePlayers = [], treasures = [], particles = [], bubbles = [], ripples = [];
@@ -234,12 +235,13 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function newPrey(x = rand(80, WORLD.w - 80), y = rand(80, WORLD.h - 80)) {
-    const rare = Math.random() < .08;
+  function newPrey(x = rand(80, WORLD.w - 80), y = rand(80, WORLD.h - 80), options = {}) {
+    const rare = options.rare ?? Math.random() < .08;
     return {
-      x, y, r: rare ? rand(10, 14) : rand(5, 10), angle: rand(0, Math.PI * 2),
-      speed: rand(15, 38), phase: rand(0, 10), color: rare ? "#d9ff67" : COLORS[Math.floor(rand(0, 4))],
-      value: rare ? 4 : 1, alive: true
+      x, y, r: options.r ?? (rare ? rand(10, 14) : rand(5, 10)), angle: options.angle ?? rand(0, Math.PI * 2),
+      speed: options.speed ?? rand(15, 38), phase: rand(0, 10), color: options.color || (rare ? "#d9ff67" : COLORS[Math.floor(rand(0, 4))]),
+      value: options.value ?? (rare ? 4 : 1), alive: true, dropped: Boolean(options.dropped),
+      burstVx: options.burstVx || 0, burstVy: options.burstVy || 0, dropDelay: options.dropDelay || 0
     };
   }
 
@@ -247,22 +249,37 @@
     return { x: rand(120, WORLD.w - 120), y: rand(120, WORLD.h - 120), value: Math.floor(rand(3, 9)), phase: rand(0, 10), active: true, respawn: 0 };
   }
 
-  function newRival(index) {
-    const r = rand(20, 43);
+  function newRival(index, options = {}) {
+    const reference = player?.r || 20;
+    const roll = Math.random();
+    let r = options.starterPrey
+      ? rand(12.5, 16.8)
+      : roll < .46
+        ? clamp(rand(reference * .58, reference * .82), 12, 70)
+        : roll < .72
+          ? clamp(rand(reference * .9, reference * 1.08), 17, 78)
+          : clamp(rand(reference * 1.18, reference * 1.62), 23, 84);
+    const score = Math.max(0, Math.round((r - 20) / .22));
+    const sizeOffset = r - (20 + score * .22);
     const edge = index % 4;
+    let x = edge < 2 ? rand(140, WORLD.w - 140) : (edge === 2 ? 150 : WORLD.w - 150);
+    let y = edge >= 2 ? rand(140, WORLD.h - 140) : (edge === 0 ? 150 : WORLD.h - 150);
+    if (options.nearPlayer && player) {
+      const angle = rand(0, Math.PI * 2), range = rand(250, 510);
+      x = clamp(player.x + Math.cos(angle) * range, 100, WORLD.w - 100);
+      y = clamp(player.y + Math.sin(angle) * range, 100, WORLD.h - 100);
+    }
     return {
-      x: edge < 2 ? rand(140, WORLD.w - 140) : (edge === 2 ? 150 : WORLD.w - 150),
-      y: edge >= 2 ? rand(140, WORLD.h - 140) : (edge === 0 ? 150 : WORLD.h - 150),
+      x, y,
       r, angle: rand(0, Math.PI * 2), targetAngle: rand(0, Math.PI * 2), speed: rand(54, 82),
       color: COLORS[(index + 2) % COLORS.length], accent: COLORS[(index + 4) % COLORS.length],
-      score: Math.round((r - 20) / .22), name: NAMES[index % NAMES.length], targetR: r,
+      score, sizeOffset, name: NAMES[index % NAMES.length], targetR: r,
       think: rand(.3, 1.5), alive: true, wobble: rand(0, 9), trail: [], skin: "butterfly"
     };
   }
 
   function resetGame() {
     prey = Array.from({ length: 175 }, () => newPrey());
-    rivals = Array.from({ length: 8 }, (_, i) => newRival(i));
     treasures = Array.from({ length: 14 }, () => newTreasure());
     remotePlayers = []; particles = []; ripples = []; syncElapsed = 0; rewardedRound = false;
     const skin = skinById(selectedSkin);
@@ -271,6 +288,7 @@
       color: skin.base, accent: skin.accent, skin: skin.id, score: 0, eaten: 0, name: nickname || "나",
       alive: true, trail: [], wobble: 0, live: true
     };
+    rivals = Array.from({ length: 8 }, (_, i) => newRival(i, { starterPrey: i < 3, nearPlayer: i < 3 }));
     for (let i = 0; i < 35; i++) player.trail.push({ x: player.x - i * 3, y: player.y });
     camera.x = player.x; camera.y = player.y; camera.zoom = 1;
     last = performance.now();
@@ -321,8 +339,28 @@
   }
 
   function grow(fish) {
-    fish.targetR = Math.min(86, 20 + Math.max(0, fish.score) * .22);
+    fish.targetR = Math.min(86, 20 + Math.max(0, fish.score) * .22 + (fish.sizeOffset || 0));
     if (fish !== player && !fish.live) fish.r = fish.targetR;
+  }
+
+  function spawnRivalDrops(rival) {
+    const count = Math.round(clamp(rival.r * .52, 7, 16));
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + rand(-.25, .25);
+      const speed = rand(95, 185);
+      prey.push(newPrey(
+        clamp(rival.x + Math.cos(angle) * rand(2, rival.r * .35), 20, WORLD.w - 20),
+        clamp(rival.y + Math.sin(angle) * rand(2, rival.r * .35), 20, WORLD.h - 20),
+        {
+          r: rand(4.8, 7.8), angle, speed: rand(28, 48),
+          color: i % 3 === 0 ? rival.accent : rival.color,
+          value: i % 5 === 0 ? 2 : 1, dropped: true,
+          burstVx: Math.cos(angle) * speed, burstVy: Math.sin(angle) * speed,
+          dropDelay: rand(.08, .2)
+        }
+      ));
+    }
+    return count;
   }
 
   function burst(x, y, color, amount) {
@@ -392,8 +430,8 @@
           if (d < nearest && d < 260000) { nearest = d; target = f; }
         }
         const pd = distance(rival, player);
-        if (player.alive && rival.r > player.r * 1.13 && pd < 520) target = player;
-        if (player.alive && player.r > rival.r * 1.18 && pd < 340) {
+        if (player.alive && rival.r > player.r * EAT_RATIO && pd < 520) target = player;
+        if (player.alive && player.r > rival.r * EAT_RATIO && pd < 340) {
           rival.targetAngle = Math.atan2(rival.y - player.y, rival.x - player.x);
         } else if (target) {
           rival.targetAngle = Math.atan2(target.y - rival.y, target.x - rival.x);
@@ -408,11 +446,11 @@
       rival.y = clamp(rival.y + Math.sin(rival.angle) * speed * dt, rival.r, WORLD.h - rival.r);
       rival.wobble += dt * 6; recordTrail(rival);
 
-      for (const f of prey) if (f.alive && rival.r > f.r * 1.4 && distance(rival, f) < rival.r * .72 + f.r) eatPrey(rival, f);
+      for (const f of prey) if (f.alive && f.dropDelay <= 0 && rival.r > f.r * 1.4 && distance(rival, f) < rival.r * .72 + f.r) eatPrey(rival, f);
       const pd = distance(rival, player);
-      if (player.alive && pd < (rival.r + player.r) * .67) {
-        if (rival.r > player.r * 1.12) defeat(`${rival.name} (AI)`);
-        else if (player.r > rival.r * 1.14) eatRival(rival);
+      if (player.alive && pd < (rival.r + player.r) * .8) {
+        if (rival.r > player.r * EAT_RATIO) defeat(`${rival.name} (AI)`);
+        else if (player.r > rival.r * EAT_RATIO) eatRival(rival);
       }
     }
     rivals = rivals.filter(r => r.alive);
@@ -421,24 +459,29 @@
 
   function eatRival(rival) {
     rival.alive = false;
-    player.score += Math.max(8, Math.round(rival.r * .9));
-    player.eaten += 3; grow(player);
-    burst(rival.x, rival.y, rival.color, 18); ripples.push({ x: rival.x, y: rival.y, r: rival.r * .5, life: 1, color: rival.color });
-    playTone(520, .16, "triangle", .055);
+    const drops = spawnRivalDrops(rival);
+    player.score += Math.max(3, Math.round(rival.r * .18));
+    player.eaten += 1; grow(player);
+    burst(rival.x, rival.y, rival.color, 24); ripples.push({ x: rival.x, y: rival.y, r: rival.r * .5, life: 1, color: rival.color });
+    camera.shake = Math.max(camera.shake || 0, Math.min(11, 4 + drops * .45));
+    playTone(430, .15, "triangle", .06); playTone(650, .11, "sine", .035);
   }
 
   function updatePrey(dt) {
     for (const fish of prey) {
       if (!fish.alive) continue;
       fish.phase += dt;
+      fish.dropDelay = Math.max(0, fish.dropDelay - dt);
       fish.angle += Math.sin(fish.phase * 1.3) * dt * .45;
       if (fish.x < 40 || fish.x > WORLD.w - 40 || fish.y < 40 || fish.y > WORLD.h - 40) fish.angle += Math.PI * dt;
-      fish.x = clamp(fish.x + Math.cos(fish.angle) * fish.speed * dt, 20, WORLD.w - 20);
-      fish.y = clamp(fish.y + Math.sin(fish.angle) * fish.speed * dt, 20, WORLD.h - 20);
-      if (player.alive && player.r > fish.r * 1.35 && distance(player, fish) < player.r * .78 + fish.r) eatPrey(player, fish);
+      fish.x = clamp(fish.x + (Math.cos(fish.angle) * fish.speed + fish.burstVx) * dt, 20, WORLD.w - 20);
+      fish.y = clamp(fish.y + (Math.sin(fish.angle) * fish.speed + fish.burstVy) * dt, 20, WORLD.h - 20);
+      fish.burstVx *= Math.max(0, 1 - dt * 4.5); fish.burstVy *= Math.max(0, 1 - dt * 4.5);
+      if (fish.dropDelay <= 0 && player.alive && player.r > fish.r * 1.35 && distance(player, fish) < player.r * .82 + fish.r) eatPrey(player, fish);
     }
-    const dead = prey.reduce((n, f) => n + (!f.alive ? 1 : 0), 0);
-    if (dead) prey = prey.filter(f => f.alive).concat(Array.from({ length: dead }, () => newPrey()));
+    const deadNatural = prey.reduce((n, f) => n + (!f.alive && !f.dropped ? 1 : 0), 0);
+    prey = prey.filter(f => f.alive);
+    if (deadNatural) prey.push(...Array.from({ length: deadNatural }, () => newPrey()));
   }
 
   function updateTreasures(dt) {
@@ -463,6 +506,7 @@
     ripples.forEach(r => { r.r += dt * 55; r.life -= dt * 1.6; });
     ripples = ripples.filter(r => r.life > 0);
     bubbles.forEach(b => { b.y -= b.speed * dt; b.x += Math.sin(b.phase += dt) * 5 * dt; if (b.y < camera.y - height) { b.y = camera.y + height; b.x = camera.x + rand(-width, width); } });
+    camera.shake = Math.max(0, (camera.shake || 0) - dt * 28);
   }
 
   function updateRemotePlayers(dt) {
@@ -505,11 +549,11 @@
     ui.missionText.textContent = idx === MISSION_GOALS.length - 1 && player.eaten >= goal ? "리프의 최강자 유지하기" : `물고기 ${goal}마리 먹기`;
     ui.missionProgress.style.width = `${clamp((current - previous) / (goal - previous) * 100, 0, 100)}%`;
     ui.missionCount.textContent = `${current} / ${goal}`;
-    const danger = rivals.concat(remotePlayers).some(r => r.alive && r.r > player.r * 1.12 && distance(r, player) < 320);
+    const danger = rivals.concat(remotePlayers).some(r => r.alive && r.r > player.r * EAT_RATIO && distance(r, player) < 320);
     ui.danger.classList.toggle("is-visible", danger);
   }
 
-  function worldToScreen(x, y) { return { x: (x - camera.x) * camera.zoom + width / 2, y: (y - camera.y) * camera.zoom + height / 2 }; }
+  function worldToScreen(x, y) { return { x: (x - camera.x) * camera.zoom + width / 2 + (camera.shakeX || 0), y: (y - camera.y) * camera.zoom + height / 2 + (camera.shakeY || 0) }; }
   function isVisible(entity, margin = 100) {
     const p = worldToScreen(entity.x, entity.y);
     return p.x > -margin && p.x < width + margin && p.y > -margin && p.y < height + margin;
@@ -627,8 +671,9 @@
 
     if (!isPlayer) {
       ctx.save(); ctx.textAlign = "center"; ctx.font = `800 ${clamp(11 * camera.zoom, 10, 14)}px Nunito, sans-serif`;
-      ctx.fillStyle = fish.r > player.r * 1.12 ? "#ff8990" : (player.r > fish.r * 1.14 ? "#d9ff67" : "#b7d9d7");
-      ctx.fillText(`${fish.name}${fish.live ? "  ● LIVE" : ""}`, p.x, p.y - r - 12); ctx.restore();
+      const edible = player.r > fish.r * EAT_RATIO;
+      ctx.fillStyle = fish.r > player.r * EAT_RATIO ? "#ff8990" : (edible ? "#d9ff67" : "#b7d9d7");
+      ctx.fillText(`${edible && !fish.live ? "냠! 맛있는 AI · " : ""}${fish.name}${fish.live ? "  ● LIVE" : ""}`, p.x, p.y - r - 12); ctx.restore();
     } else {
       ctx.save(); ctx.textAlign = "center"; ctx.font = `900 ${clamp(12 * camera.zoom, 11, 15)}px Nunito, sans-serif`; ctx.fillStyle = "#eafff8"; ctx.fillText(`${fish.name} (나)`, p.x, p.y - r - 14); ctx.restore();
     }
@@ -652,6 +697,8 @@
   }
 
   function render(time) {
+    camera.shakeX = camera.shake ? rand(-camera.shake, camera.shake) : 0;
+    camera.shakeY = camera.shake ? rand(-camera.shake, camera.shake) : 0;
     drawBackground(time);
     drawEffects();
     prey.filter(f => f.alive && isVisible(f, 40)).forEach(f => drawPrey(f, time));
