@@ -1,0 +1,16 @@
+{
+  "main": "index.js",
+  "compatibility_date": "2026-09-25",
+  "assets": {
+    "directory": "../client",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gobblefin-room",
+      "database_id": "00000000-0000-4000-8000-000000000000"
+    }
+  ]
+}

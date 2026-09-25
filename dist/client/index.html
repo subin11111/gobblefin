@@ -38,6 +38,10 @@
           <i></i>
           <div><span>순위</span><strong id="rank">-</strong></div>
         </div>
+        <div class="online-pill" id="onlinePill" aria-live="polite">
+          <span class="online-dot"></span><strong id="onlineCount">1</strong><span>온라인</span>
+        </div>
+        <div class="coin-pill" aria-label="보유 코인"><span aria-hidden="true">●</span><strong id="coinCount">0</strong></div>
         <button class="icon-button" id="soundButton" type="button" aria-label="소리 켜기" aria-pressed="false">
           <span aria-hidden="true">♪</span>
         </button>
@@ -46,6 +50,7 @@
       <aside class="leaderboard panel" aria-label="실시간 순위">
         <div class="panel-title"><span>TOP FISH</span><em>LIVE</em></div>
         <ol id="leaderboardList"></ol>
+        <div class="live-roster" id="liveRoster"></div>
       </aside>
 
       <section class="mission panel" aria-label="현재 목표">
@@ -81,9 +86,18 @@
           <p class="kicker">EAT · GROW · RULE THE REEF</p>
           <h1 id="startTitle">작은 놈을 먹고<br /><span>바다를 지배해</span></h1>
           <p class="intro">나보다 작은 물고기만 먹을 수 있어요.<br />몸집을 키워 최후의 포식자가 되세요.</p>
-          <button class="primary-button" id="startButton" type="button">
+          <label class="nickname-field" for="nicknameInput">
+            <span>닉네임</span>
+            <span class="nickname-control">
+              <input id="nicknameInput" type="text" maxlength="12" autocomplete="nickname" placeholder="바다에서 쓸 이름" />
+              <button id="randomNameButton" type="button" aria-label="무작위 닉네임 추천">↻</button>
+            </span>
+          </label>
+          <p class="nickname-note" id="nicknameNote">닉네임은 같은 바다의 플레이어에게 보여요.</p>
+          <button class="primary-button" id="startButton" type="button" disabled>
             <span>헤엄치기</span><b aria-hidden="true">→</b>
           </button>
+          <button class="shop-button" id="shopButton" type="button"><span aria-hidden="true">◆</span> 물고기 상점</button>
           <p class="best-score">내 최고 기록 <strong id="bestScore">0</strong></p>
         </div>
       </section>
@@ -92,8 +106,10 @@
         <div class="modal-card result-card">
           <p class="kicker">THE REEF GOT YOU</p>
           <h2 id="gameOverTitle">냠! 잡아먹혔어요</h2>
+          <p class="defeat-reason" id="defeatReason"></p>
           <div class="result-score"><span>이번 점수</span><strong id="finalScore">0</strong></div>
           <p id="newBest" class="new-best">새로운 최고 기록!</p>
+          <p class="coin-reward" id="coinReward"></p>
           <button class="primary-button" id="restartButton" type="button">
             <span>다시 헤엄치기</span><b aria-hidden="true">↻</b>
           </button>
@@ -107,6 +123,18 @@
           <button class="primary-button" id="resumeButton" type="button">
             <span>계속 헤엄치기</span><b aria-hidden="true">→</b>
           </button>
+        </div>
+      </section>
+
+      <section class="modal-wrap shop-wrap" id="shopModal" aria-labelledby="shopTitle">
+        <div class="modal-card shop-card">
+          <div class="shop-head">
+            <div><p class="kicker">REEF BOUTIQUE</p><h2 id="shopTitle">물고기 상점</h2></div>
+            <button class="shop-close" id="shopCloseButton" type="button" aria-label="상점 닫기">×</button>
+          </div>
+          <p class="shop-copy">실제 바다의 아름다운 어종에서 색과 무늬를 가져온 오리지널 디자인이에요.</p>
+          <div class="shop-balance"><span>보유 코인</span><strong><i aria-hidden="true">●</i> <b id="shopCoinCount">0</b></strong></div>
+          <div class="skin-grid" id="skinGrid"></div>
         </div>
       </section>
     </main>
